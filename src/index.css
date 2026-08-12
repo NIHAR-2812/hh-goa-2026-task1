@@ -1,0 +1,40 @@
+/* 1. Import the fonts from Google */
+@import url('https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=DM+Sans:opsz,wght@9..40,400..700&family=Permanent+Marker&family=Space+Mono:wght@400;700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-goa-green: #113424;
+  --color-goa-cream: #f4eee0;
+  --color-goa-yellow: #f5b942;
+  --color-goa-coral: #ef7b6c;
+  --color-goa-leaf: #335c43;
+
+  /* Typography */
+  --font-hero: "Bowlby One SC", sans-serif;
+  --font-secondary: "Permanent Marker", cursive;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "Space Mono", monospace;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-goa-green);
+    color: var(--color-goa-cream);
+    /* Set DM Sans as the default font for the whole app */
+    font-family: var(--font-body); 
+  }
+}
+
+/* Custom scrollbar to maintain vibe */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-goa-green);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-goa-leaf);
+  border-radius: 4px;
+}
