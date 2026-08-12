@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import * as htmlToImage from 'html-to-image';
 import { ArrowLeft, Download, Share2, RefreshCw, Shuffle } from 'lucide-react';
 import UploadPhoto from '../components/UploadPhoto';
-import { generateTitle } from '../utils/titleGenerator';
 
 // --- TITLE DATABASE & LOGIC ---
 const ROLE_OPTIONS = [
