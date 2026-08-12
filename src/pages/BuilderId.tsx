@@ -4,6 +4,7 @@ import * as htmlToImage from 'html-to-image';
 import { ArrowLeft, Download, Share2, RefreshCw, Shuffle } from 'lucide-react';
 import UploadPhoto from '../components/UploadPhoto';
 
+
 // --- TITLE DATABASE & LOGIC ---
 const ROLE_OPTIONS = [
   'Frontend / UI', 'Backend / Systems', 'Full Stack', 'AI / ML', 'Data',
