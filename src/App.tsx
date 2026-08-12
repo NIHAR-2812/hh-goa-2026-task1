@@ -5,7 +5,7 @@ import BuilderId from './pages/BuilderId';
 
 function App() {
   return (
-    <div className="min-h-screen bg-goa-green overflow-hidden">
+    <div className="min-h-screen bg-goa-green">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/frame" element={<FrameGenerator />} />

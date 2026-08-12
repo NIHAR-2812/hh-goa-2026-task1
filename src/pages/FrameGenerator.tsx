@@ -32,11 +32,29 @@ export default function FrameGenerator() {
     }
   };
 
+  const waitForFrameReady = async () => {
+    if (!frameRef.current) return;
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+    const images = Array.from(frameRef.current.querySelectorAll('img'));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+      })
+    );
+  };
+
   const handleDownload = useCallback(async () => {
     if (!frameRef.current) return;
     setIsGenerating(true);
     try {
-      const dataUrl = await htmlToImage.toPng(frameRef.current, { cacheBust: true, pixelRatio: 6 });
+      await waitForFrameReady();
+      const dataUrl = await htmlToImage.toPng(frameRef.current, { cacheBust: true, pixelRatio: 4 });
       const link = document.createElement('a');
       link.download = 'HH-Goa-Frame.png';
       link.href = dataUrl;
@@ -53,7 +71,8 @@ export default function FrameGenerator() {
     if (!frameRef.current) return;
     setIsGenerating(true);
     try {
-      const dataUrl = await htmlToImage.toPng(frameRef.current, { cacheBust: true, pixelRatio: 6 });
+      await waitForFrameReady();
+      const dataUrl = await htmlToImage.toPng(frameRef.current, { cacheBust: true, pixelRatio: 4 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'HH-Goa-Frame.png', { type: 'image/png' });
       const text = "Just framed my moment in Goa 🌴💻\nHH Goa 2026\n#FrameInGoa";
@@ -77,8 +96,8 @@ export default function FrameGenerator() {
   }, [handleDownload]);
 
   return (
-    <div className="relative w-full h-screen bg-goa-green overflow-hidden">
-      <picture className="absolute inset-0 w-full h-full fixed pointer-events-none">
+    <div className="relative w-full min-h-screen bg-goa-green flex flex-col">
+      <picture className="fixed inset-0 w-full h-full pointer-events-none z-0">
         <source media="(max-aspect-ratio: 3/4)" srcSet="/assets/frame_bg_mobile.jpg" />
         <img 
           src="/assets/frame_bg.png" 
@@ -87,8 +106,8 @@ export default function FrameGenerator() {
         />
       </picture>
 
-      <div className="relative z-10 w-full h-screen p-4 md:p-8 flex flex-col">
-        <header className="w-full mb-2">
+      <div className="relative z-10 w-full min-h-screen p-4 md:p-8 flex flex-col justify-between">
+        <header className="w-full mb-4 md:mb-6 flex-shrink-0">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center justify-center w-10 h-10 bg-black/40 hover:bg-black/60 text-white backdrop-blur-md rounded-full transition-colors border border-white/20"
@@ -98,9 +117,9 @@ export default function FrameGenerator() {
           </button>
         </header>
 
-        <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center justify-center py-6 px-4 overflow-hidden">
+        <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center justify-center my-auto py-4">
           
-          <div className="w-full max-h-full overflow-y-auto bg-[#f8f5ec] p-6 md:p-8 rounded-[1.2rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col text-[#1a1a1a] scrollbar-thin scrollbar-thumb-black/20 scrollbar-track-transparent">
+          <div className="w-full bg-[#f8f5ec] p-6 md:p-8 rounded-[1.2rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col text-[#1a1a1a]">
             
             {/* Header */}
             <div className="text-center w-full mb-8">
@@ -110,7 +129,7 @@ export default function FrameGenerator() {
               <p className="text-sm font-semibold opacity-70">Choose a frame. Make it yours.</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 md:gap-10 items-center">
+            <div className="grid md:grid-cols-2 gap-8 md:gap-10 items-start">
               
               {/* LEFT COLUMN: Controls */}
               <div className="flex flex-col gap-8 order-2 md:order-1">
@@ -168,7 +187,7 @@ export default function FrameGenerator() {
               </div>
 
               {/* RIGHT COLUMN: Photo Area & Actions */}
-              <div className="flex flex-col items-center justify-center order-1 md:order-2 w-full min-h-[350px]">
+              <div className="flex flex-col items-center justify-center order-1 md:order-2 w-full md:sticky md:top-6 min-h-[350px]">
                 
                 {!photo ? (
                   /* Upload State (Tightly bounded to prevent layout stretching) */

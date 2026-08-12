@@ -90,6 +90,27 @@ export default function BuilderId() {
   const [isGenerating, setIsGenerating] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const DESIGN_WIDTH = 340;
+  const DESIGN_HEIGHT = 481;
+
+  // Display scale
+  const [displayScale, setDisplayScale] = useState(0.6176);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        const w = containerRef.current.clientWidth;
+        if (w > 0) {
+          setDisplayScale(w / DESIGN_WIDTH);
+        }
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+
   const handleShuffleTitle = useCallback(() => {
     setTitle(getRandomTitle(selectedRoles, title));
   }, [selectedRoles, title]);
@@ -117,14 +138,17 @@ export default function BuilderId() {
   // --- Gesture Handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
-    dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    dragStart.current = { 
+      x: e.clientX - position.x * displayScale, 
+      y: e.clientY - position.y * displayScale 
+    };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging.current) return;
     setPosition({
-      x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y
+      x: (e.clientX - dragStart.current.x) / displayScale,
+      y: (e.clientY - dragStart.current.y) / displayScale
     });
   };
 
@@ -141,8 +165,8 @@ export default function BuilderId() {
     } else {
       // Two-finger swipe to pan on laptop touchpad
       setPosition(prev => ({
-        x: prev.x - e.deltaX,
-        y: prev.y - e.deltaY
+        x: prev.x - (e.deltaX / displayScale),
+        y: prev.y - (e.deltaY / displayScale)
       }));
     }
   };
@@ -157,7 +181,10 @@ export default function BuilderId() {
       initialScale.current = scale;
     } else if (e.touches.length === 1) {
       isDragging.current = true;
-      dragStart.current = { x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y };
+      dragStart.current = { 
+        x: e.touches[0].clientX - position.x * displayScale, 
+        y: e.touches[0].clientY - position.y * displayScale 
+      };
     }
   };
 
@@ -171,18 +198,45 @@ export default function BuilderId() {
       setScale(Math.max(0.5, Math.min(initialScale.current * delta, 4)));
     } else if (e.touches.length === 1 && isDragging.current) {
       setPosition({
-        x: e.touches[0].clientX - dragStart.current.x,
-        y: e.touches[0].clientY - dragStart.current.y
+        x: (e.touches[0].clientX - dragStart.current.x) / displayScale,
+        y: (e.touches[0].clientY - dragStart.current.y) / displayScale
       });
     }
   };
 
   // --- Export Logic ---
+  const waitForCardReady = async () => {
+    if (!cardRef.current) return;
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+    const images = Array.from(cardRef.current.querySelectorAll('img'));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+      })
+    );
+  };
+
   const handleDownload = async () => {
     if (!cardRef.current) return;
     setIsGenerating(true);
     try {
-      const dataUrl = await htmlToImage.toPng(cardRef.current, { cacheBust: true, pixelRatio: 6 });
+      await waitForCardReady();
+      const dataUrl = await htmlToImage.toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 3,
+        width: DESIGN_WIDTH,
+        height: DESIGN_HEIGHT,
+        style: {
+          transform: 'none',
+          transformOrigin: '0 0'
+        }
+      });
       const link = document.createElement('a');
       link.download = 'HH-Goa-Builder-ID.png';
       link.href = dataUrl;
@@ -199,7 +253,17 @@ export default function BuilderId() {
     if (!cardRef.current) return;
     setIsGenerating(true);
     try {
-      const dataUrl = await htmlToImage.toPng(cardRef.current, { cacheBust: true, pixelRatio: 6 });
+      await waitForCardReady();
+      const dataUrl = await htmlToImage.toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 3,
+        width: DESIGN_WIDTH,
+        height: DESIGN_HEIGHT,
+        style: {
+          transform: 'none',
+          transformOrigin: '0 0'
+        }
+      });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'HH-Goa-Builder-ID.png', { type: 'image/png' });
       const text = `Just got my HH Goa 2026 Builder ID 🌴⚡\n\nI'm a ${title}.\n\nSee you in Goa.\n\n#FrameInGoa #HHGoa2026`;
@@ -226,8 +290,8 @@ export default function BuilderId() {
     : 'BUILDER';
 
   return (
-    <div className="relative w-full h-screen bg-goa-green overflow-hidden">
-      <picture className="absolute inset-0 w-full h-full fixed">
+    <div className="relative w-full min-h-screen bg-goa-green flex flex-col">
+      <picture className="fixed inset-0 w-full h-full pointer-events-none z-0">
         <source media="(max-aspect-ratio: 3/4)" srcSet="/assets/id_bg_mobile.jpg" />
         <img 
           src="/assets/id_bg.png" 
@@ -236,8 +300,8 @@ export default function BuilderId() {
         />
       </picture>
 
-      <div className="relative z-10 w-full h-screen p-4 md:p-8 flex flex-col">
-        <header className="w-full mb-6 flex-shrink-0">
+      <div className="relative z-10 w-full min-h-screen p-4 md:p-8 flex flex-col justify-between">
+        <header className="w-full mb-4 md:mb-6 flex-shrink-0">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md rounded-full transition-colors border border-white/20"
@@ -246,9 +310,9 @@ export default function BuilderId() {
           </button>
         </header>
 
-        <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center justify-center py-2 px-4 overflow-hidden">
+        <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center justify-center my-auto py-4">
           
-          <div className="w-full bg-[#f8f5ec] p-4 md:p-6 rounded-[1.2rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col text-[#1a1a1a] max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-black/20 scrollbar-track-transparent">
+          <div className="w-full bg-[#f8f5ec] p-4 md:p-6 rounded-[1.2rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col text-[#1a1a1a]">
             
             <div className="text-center w-full mb-4 flex-shrink-0">
               <h1 className="font-hero text-xl md:text-2xl font-black mb-0.5 tracking-wide uppercase">
@@ -352,79 +416,97 @@ export default function BuilderId() {
               </div>
 
               {/* RIGHT: Live Preview & Actions */}
-              <div className="flex flex-col items-center justify-center order-1 md:order-2 w-full sticky top-0">
+              <div className="flex flex-col items-center justify-center order-1 md:order-2 w-full md:sticky md:top-6">
                 <div className="w-full flex flex-col items-center mb-3">
                   <div 
-                    ref={cardRef} 
-                    className="relative w-full max-w-[210px] rounded-xl overflow-hidden shadow-inner bg-[#f4eee0] border border-black/10"
+                    ref={containerRef}
+                    className="w-full max-w-[210px] aspect-[1130/1600] relative overflow-hidden rounded-xl shadow-inner bg-[#f4eee0] border border-black/10 select-none"
                   >
-                    {/* Reference ID Template */}
-                    <img 
-                      src="/assets/new_id.png" 
-                      alt="ID Template" 
-                      className="w-full h-auto block z-0 pointer-events-none"
-                    />
-
-                    {/* Overlaid Data */}
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-start py-[10%] px-[10%]">
-                      {/* Avatar Area with Native Gestures */}
+                    <div 
+                      style={{
+                        width: DESIGN_WIDTH,
+                        height: DESIGN_HEIGHT,
+                        transform: `scale(${displayScale})`,
+                        transformOrigin: 'top left'
+                      }}
+                      className="absolute top-0 left-0"
+                    >
                       <div 
-                        className="w-[56%] flex-shrink-0 aspect-square rounded-full overflow-hidden border-[3px] border-[#f5b942] shadow-md bg-[#113424] mt-[54%] relative cursor-move touch-none"
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                        onWheel={handleWheel}
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleMouseUp}
+                        ref={cardRef} 
+                        style={{ width: DESIGN_WIDTH, height: DESIGN_HEIGHT }}
+                        className="relative w-[340px] h-[481px] overflow-hidden bg-[#f4eee0]"
                       >
-                        {photo && (
-                          <img 
-                            src={photo} 
-                            className="absolute inset-0 w-full h-full object-cover origin-center pointer-events-none" 
-                            alt="Profile" 
-                            style={{
-                              transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`
-                            }}
-                          />
-                        )}
-                      </div>
+                        {/* Reference ID Template */}
+                        <img 
+                          src="/assets/new_id.png" 
+                          alt="ID Template" 
+                          className="w-full h-full block z-0 pointer-events-none"
+                        />
 
-                      {/* Text Details Area */}
-                      <div className="w-full text-center flex flex-col items-center flex-1 mt-0.5 relative pointer-events-none">
-                        
-                        <h2 className={`font-hero text-white uppercase tracking-wider mb-0.3 origin-center drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,1)] w-[98%] text-center leading-[1.1] break-words ${
-                          name.length > 20 ? 'text-[11px]' : name.length > 13 ? 'text-[13px]' : 'text-[16px]'
-                        }`}>
-                          {name || 'YOUR NAME'}
-                        </h2>
-                        
-                        <div className={`font-secondary font-semibold text-[#F5B942] px-2 py-0.5 rounded-full uppercase tracking-widest mb-auto drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,1)] max-w-[95%] text-center leading-[1.1] ${
-                          title.length > 20 ? 'text-[9px]' : title.length > 14 ? 'text-[11px]' : 'text-[13px]'
-                        }`}>
-                          {title}
-                        </div>
+                        {/* Overlaid Data */}
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-start py-[10%] px-[10%]">
+                          {/* Avatar Area with Native Gestures */}
+                          <div 
+                            className="w-[152px] h-[152px] flex-shrink-0 rounded-full overflow-hidden border-[3px] border-[#f5b942] shadow-md bg-[#113424] mt-[148px] relative cursor-move touch-none"
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                            onWheel={handleWheel}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleMouseUp}
+                          >
+                            {photo && (
+                              <img 
+                                src={photo} 
+                                className="absolute inset-0 w-full h-full object-cover origin-center pointer-events-none" 
+                                alt="Profile" 
+                                style={{
+                                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`
+                                }}
+                              />
+                            )}
+                          </div>
 
-                        {/* Divider Layout: Roles | X Handle */}
-                        <div className="flex w-full items-center justify-center gap-2 mt-0.5 mb-3.5">
-                          <p className="font-mono font-bold text-[#FFFFFF] text-[9px] uppercase tracking-wider leading-[1.2] flex-1 text-right break-words whitespace-normal">
-                            {displayRoles}
+                          {/* Text Details Area */}
+                          <div className="w-full text-center flex flex-col items-center justify-start mt-1 relative pointer-events-none">
+                            
+                            {/* 1. Name */}
+                            <h2 className={`font-hero text-white uppercase tracking-wider origin-center drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,1)] w-[98%] text-center leading-[1.1] break-words ${
+                              name.length > 20 ? 'text-[14px]' : name.length > 13 ? 'text-[16px]' : 'text-[18px]'
+                            }`}>
+                              {name || 'YOUR NAME'}
+                            </h2>
+                            
+                            {/* 2. Title */}
+                            <div className={`font-secondary font-semibold text-[#F5B942] px-2 py-0.5 rounded-full uppercase tracking-widest drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,1)] max-w-[95%] text-center leading-[1.1] mt-0.5 ${
+                              title.length > 20 ? 'text-[11px]' : title.length > 14 ? 'text-[13px]' : 'text-[15px]'
+                            }`}>
+                              {title}
+                            </div>
+
+                            {/* 3. Divider Layout: Roles | X Handle */}
+                            <div className="flex w-full items-center justify-center gap-2 mt-1 px-1">
+                              <p className="font-mono font-bold text-[#FFFFFF] text-[10px] uppercase tracking-wider leading-[1.2] flex-1 text-right break-words whitespace-normal">
+                                {displayRoles}
+                              </p>
+                              <div className="w-px h-3.5 bg-black/50 self-center flex-shrink-0"></div>
+                              <p className="font-body text-[#FFFFFF] font-bold text-[9px] flex-1 text-left truncate">
+                                {xHandle ? `@${xHandle}` : 'X HANDLE'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* 4. Team Name / #FRAMEINGOA - Absolute positioned to bottom center */}
+                          <p className={`absolute bottom-[3.7%] left-1/2 -translate-x-1/2 font-secondary text-[#F5B942]/100 font-bold tracking-widest drop-shadow-[0_2px_1.5px_rgba(0,0,0,1)] w-[95%] text-center leading-[1.2] break-words whitespace-normal pointer-events-none ${
+                            (teamName || '#FRAMEINGOA').length > 20 ? 'text-[8px]' : (teamName || '#FRAMEINGOA').length > 14 ? 'text-[9px]' : 'text-[10px]'
+                          }`}>
+                            {teamName ? teamName.toUpperCase() : 'TEAM NAME'}
                           </p>
-                          <div className="w-px min-h-[12px] h-full bg-black/50 self-stretch"></div>
-                          <p className="font-body text-[#FFFFFF] font-bold text-[8px] flex-1 text-left truncate">
-                            {xHandle ? `@${xHandle}` : 'X HANDLE'}
-                          </p>
+
                         </div>
                       </div>
-                      
-                      {/* Team Name / #FRAMEINGOA - Absolute positioned to bottom center */}
-                      <p className={`absolute bottom-[3.7%] left-1/2 -translate-x-1/2 font-secondary text-[#F5B942]/100 font-bold tracking-widest drop-shadow-[0_2px_1.5px_rgba(0,0,0,1)] w-[95%] text-center leading-[1.2] break-words whitespace-normal pointer-events-none ${
-                        (teamName || '#FRAMEINGOA').length > 20 ? 'text-[7px]' : (teamName || '#FRAMEINGOA').length > 14 ? 'text-[8px]' : 'text-[9px]'
-                      }`}>
-                        {teamName ? teamName.toUpperCase() : 'TEAM NAME'}
-                      </p>
-
                     </div>
                   </div>
                 </div>
